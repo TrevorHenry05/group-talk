@@ -40,19 +40,6 @@ class UserInfoSerializer(serializers.ModelSerializer):
         }
 
 
-class UserDetailedSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["id", "username", "email", "chatrooms"]
-        extra_kwargs = {
-            'id': {'read_only': True},
-        }
-
-    def get_chatrooms(self, obj):
-        chatrooms = ChatRoom.object.filter(members=obj)
-        return ChatRoomSerializer(chatrooms, many=True).data
-
-
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
@@ -75,6 +62,21 @@ class ChatRoomSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'id': {'read_only': True},
         }
+
+
+class UserDetailedSerializer(serializers.ModelSerializer):
+    chatrooms = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "chatrooms"]
+        extra_kwargs = {
+            'id': {'read_only': True},
+        }
+
+    def get_chatrooms(self, obj):
+        chatrooms = ChatRoom.objects.filter(members=obj)
+        return ChatRoomSerializer(chatrooms, many=True).data
 
 
 class ChatMembershipSerializer(serializers.ModelSerializer):

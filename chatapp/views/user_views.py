@@ -52,29 +52,39 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
 
     def get_serializer_class(self):
-        if self.action in ['list']:
+        if self.action == 'list':
             return UserInfoSerializer
-        elif self.action in ['retrieve']:
+        elif self.action == 'retrieve':
             return UserDetailedSerializer
         return UserSerializer
 
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-
     def perform_update(self, serializer):
-        # Only allow the user to update their own profile
         if self.request.user == self.get_object():
             serializer.save()
         else:
-            raise permissions.exceptions.PermissionDenied(
+            raise permissions.PermissionDenied(
                 "You do not have permission to edit this profile.")
 
-    def perform_destroy(self, instance):
-        # Only allow the user to delete their own profile
-        if self.request.user == instance:
-            instance.delete()
-        else:
-            raise permissions.exceptions.PermissionDenied(
-                "You do not have permission to delete this profile.")
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop(
+            'partial',
+            False
+        )
+
+        if request.data.keys() != ['password', 'email', 'username']:
+            partial = True
+
+        if 'password' in request.data and not request.data['password']:
+            request.data.pop('password')
+            partial = True
+
+        instance = self.get_object()
+        serializer = self.get_serializer(
+            instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
