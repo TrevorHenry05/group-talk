@@ -13,25 +13,8 @@ class UserSerializer(serializers.ModelSerializer):
             'password': {'write_only': True}
         }
 
-    def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password']
-        )
-        return user
 
-    def update(self, instance, validated_data):
-        instance.username = validated_data.get('username', instance.username)
-        instance.email = validated_data.get('email', instance.email)
-        password = validated_data.get('password', None)
-        if password:
-            instance.set_password(password)
-        instance.save()
-        return instance
-
-
-class UserInfoSerializer(serializers.ModelSerializer):
+class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "email"]
@@ -55,16 +38,39 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Incorrect Credentials")
 
 
-class ChatRoomSerializer(serializers.ModelSerializer):
+class MessageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ChatRoom
-        fields = '__all__'
+        model = Message
+        fields = ['id', 'user', 'chatroom', 'content', 'timestamp']
         extra_kwargs = {
             'id': {'read_only': True},
         }
 
 
-class UserDetailedSerializer(serializers.ModelSerializer):
+class ChatRoomDetailSerializer(serializers.ModelSerializer):
+    members = UserListSerializer(many=True, read_only=True)
+    messages = MessageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ChatRoom
+        fields = ['id', 'name', 'type', 'members', 'messages']
+        extra_kwargs = {
+            'id': {'read_only': True},
+        }
+
+
+class ChatRoomSerializer(serializers.ModelSerializer):
+    members = UserListSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ChatRoom
+        fields = ['id', 'name', 'type', 'members']
+        extra_kwargs = {
+            'id': {'read_only': True},
+        }
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
     chatrooms = serializers.SerializerMethodField()
 
     class Meta:
@@ -80,18 +86,14 @@ class UserDetailedSerializer(serializers.ModelSerializer):
 
 
 class ChatMembershipSerializer(serializers.ModelSerializer):
+    user = UserListSerializer(read_only=True)
+    chatroom = serializers.PrimaryKeyRelatedField(
+        queryset=ChatRoom.objects.all()
+    )
+
     class Meta:
         model = ChatMembership
-        fields = '__all__'
-        extra_kwargs = {
-            'id': {'read_only': True},
-        }
-
-
-class MessageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Message
-        fields = '__all__'
+        fields = ['id', 'user', 'chatroom']
         extra_kwargs = {
             'id': {'read_only': True},
         }

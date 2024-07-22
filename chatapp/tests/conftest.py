@@ -30,8 +30,11 @@ def get_token(create_user):
 
 @pytest.fixture
 def auth_client(api_client, create_user, get_token):
-    user = create_user(username='testuser',
-                       email='test@example.com', password='testpassword')
+    user = create_user(
+        username='testuser',
+        email='test@example.com',
+        password='testpassword'
+    )
     tokens = get_token(user)
     api_client.credentials(HTTP_AUTHORIZATION='Bearer ' + tokens['access'])
     return api_client, user

@@ -1,90 +1,86 @@
-from django.contrib.auth.models import User
-from rest_framework import status, permissions, viewsets
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from ..serializers import UserSerializer, LoginSerializer, UserInfoSerializer, UserDetailedSerializer
-from ..permissions import IsOwnerOrReadOnly
+from ..serializers import UserSerializer, LoginSerializer, UserListSerializer, UserDetailSerializer
+from django.contrib.auth.models import User
 
 
-class RegisterView(APIView):
-    permission_classes = [permissions.AllowAny]
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_user(request):
+    serializer = UserSerializer(data=request.data)
 
-    def post(self, request, *args, **kwargs):
-        serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        refresh = RefreshToken.for_user(user)
 
-        if serializer.is_valid():
-            user = serializer.save()
-            refresh = RefreshToken.for_user(user)
-
-            return Response({
+        return Response(
+            {
                 "user_id": user.id,
                 "username": user.username,
                 "email": user.email,
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class LoginView(APIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        serializer = LoginSerializer(data=request.data)
-
-        if serializer.is_valid():
-            user = serializer.validated_data
-            refresh = RefreshToken.for_user(user)
-
-            return Response({
-                "user_id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
-
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return UserInfoSerializer
-        elif self.action == 'retrieve':
-            return UserDetailedSerializer
-        return UserSerializer
-
-    def perform_update(self, serializer):
-        if self.request.user == self.get_object():
-            serializer.save()
-        else:
-            raise permissions.PermissionDenied(
-                "You do not have permission to edit this profile.")
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop(
-            'partial',
-            False
+            },
+            status=status.HTTP_201_CREATED
         )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if request.data.keys() != ['password', 'email', 'username']:
-            partial = True
 
-        if 'password' in request.data and not request.data['password']:
-            request.data.pop('password')
-            partial = True
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def login_user(request):
+    serializer = LoginSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.validated_data
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            },
+            status=status.HTTP_200_OK
+        )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        instance = self.get_object()
-        serializer = self.get_serializer(
-            instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
 
-    def partial_update(self, request, *args, **kwargs):
-        kwargs['partial'] = True
-        return self.update(request, *args, **kwargs)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_users(request):
+    users = User.objects.all()
+    serializer = UserListSerializer(users, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['PUT', 'GET', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def user_detail(request):
+    if request.method == 'PUT':
+        return update_user(request)
+    elif request.method == 'GET':
+        return get_user(request)
+    elif request.method == 'DELETE':
+        return delete_user(request)
+
+
+def update_user(request):
+    serializer = UserSerializer(request.user, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+def get_user(request):
+    serializer = UserDetailSerializer(request.user)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+def delete_user(request):
+    request.user.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
