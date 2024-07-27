@@ -22,7 +22,10 @@ class ChatRoom(models.Model):
         through="ChatMembership",
         related_name="chatroom"
     )
-    messages = models.ManyToManyField("Message", related_name="chatroom")
+    messages = models.ManyToManyField(
+        "Message",
+        related_name="chatrooms_messages"
+    )
 
     def __str__(self):
         return self.name

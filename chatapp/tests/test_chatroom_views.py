@@ -13,7 +13,7 @@ def test_create_chatroom(auth_client):
     data = {
         "name": "Test Chatroom",
         "type": ChatRoom.GROUP,
-        "member_ids": [user.id]
+        "member_ids": []
     }
 
     # Action

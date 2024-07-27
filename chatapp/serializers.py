@@ -44,6 +44,7 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'chatroom', 'content', 'timestamp']
         extra_kwargs = {
             'id': {'read_only': True},
+            'timestamp': {'read_only': True},
         }
 
 

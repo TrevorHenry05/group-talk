@@ -20,6 +20,7 @@ def chatrooms_list(request):
 def create_chatroom(request):
     data = JSONParser().parse(request)
     member_ids = data.pop('member_ids', [])
+    member_ids.append(request.user.id)
 
     serializer = ChatRoomSerializer(data=data)
     if serializer.is_valid():
